@@ -11,16 +11,18 @@ export const getServerSideProps = async () => {
   return {
     props: {
       fallback: {
-        [unstable_serialize(
-          index => `https://jsonplaceholder.typicode.com/posts?_page=1&_limit=1`
-        )]: [res]
+        [unstable_serialize(index => {
+          return {
+            url: 'https://jsonplaceholder.typicode.com/posts',
+            page: 1
+          }
+        })]: [res]
       }
     }
   }
 }
 
 export default function App({ fallback }) {
-  console.log(fallback)
   return (
     <SWRConfig value={{ fallback }}>
       <Article />

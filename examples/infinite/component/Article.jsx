@@ -1,24 +1,39 @@
-import useSWRInfinite from 'swr/infinite'
-import { useSWRConfig } from 'swr'
+import useSWRInfinite, {
+  unstable_serialize as infinite_unstable_serialize
+} from 'swr/infinite'
+import { useSWRConfig, unstable_serialize } from 'swr'
 
 import fetch from '../libs/fetch'
 import React from 'react'
 import { useEffect } from 'react'
 
-export default function Article() {
-  const { cache, fallback, mutate } = useSWRConfig()
+function useSetInfiniteSwrInitialCache(getKey) {
+  const { mutate, fallback } = useSWRConfig()
 
-  const { data, error, size, setSize, isValidating } = useSWRInfinite(
-    index =>
-      `https://jsonplaceholder.typicode.com/posts?_page=${index + 1}&_limit=1`,
-    fetch,
+  useEffect(() => {
+    const [fallbackData] = fallback[infinite_unstable_serialize(getKey)]
+    mutate(unstable_serialize(getKey(0)), fallbackData, {
+      revalidate: false
+    })
+  }, [mutate])
+}
+
+const getKey = index => {
+  return {
+    url: 'https://jsonplaceholder.typicode.com/posts',
+    page: index + 1
+  }
+}
+
+export default function Article() {
+  const { data, error, size, setSize, isValidating, mutate } = useSWRInfinite(
+    getKey,
+    ({ url, page }) => fetch(`${url}/?_page=${page}&_limit=1`),
     {
-      revalidateFirstPage: false,
-      revalidateOnMount: false
-      // fallbackData
+      revalidateFirstPage: false
     }
   )
-  console.log(cache, fallback)
+
   const issues = data ? [].concat(...data) : []
   const isLoadingInitialData = !data && !error
   const isLoadingMore =
@@ -28,21 +43,8 @@ export default function Article() {
   const isReachingEnd = isEmpty || (data && data[data.length - 1]?.length < 1)
   const isRefreshing = isValidating && data && data.length === size
 
-  useEffect(() => {
-    mutate(
-      'https://jsonplaceholder.typicode.com/posts?_page=1&_limit=1',
-      [
-        {
-          userId: 1,
-          id: 1,
-          title:
-            'sunt aut facere repellat provident occaecati excepturi optio reprehenderit',
-          body: 'quia et suscipit\nsuscipit recusandae consequuntur expedita et cum\nreprehenderit molestiae ut ut quas totam\nnostrum rerum est autem sunt rem eveniet architecto'
-        }
-      ],
-      { revalidate: false }
-    )
-  }, [])
+  useSetInfiniteSwrInitialCache(getKey)
+
   return (
     <div style={{ fontFamily: 'sans-serif' }}>
       <p>
